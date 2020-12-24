@@ -118,9 +118,9 @@ def quadratic_weighted_kappa(y, y_pred):
 
 
 def print_msg(msg, appendixs=[]):
-    max_len = len(max([msg, *appendixs], key=len))
-    print('=' * max_len)
+    # max_len = len(max([msg, *appendixs], key=len))
+    # print('=' * max_len)
     print(msg)
-    for appendix in appendixs:
-        print(appendix)
-    print('=' * max_len)
+    # for appendix in appendixs:
+    #     print(appendix)
+    # print('=' * max_len)

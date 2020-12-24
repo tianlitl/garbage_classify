@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import argparse
 import os
 
 import torch
@@ -10,11 +11,11 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from tqdm import tqdm
 
-from .Resnet import resnet50
-from .dataset import Dataset
-from .metrics import accuracy
-from .model import PMG
-from .utils import print_msg
+from Resnet import resnet50
+from dataset import Dataset
+from metrics import accuracy
+from model import PMG
+from utils import print_msg
 
 
 class Resize(object):
@@ -79,31 +80,52 @@ def _eval(model, dataloader):
     return acc, all_pred.cpu().numpy()
 
 
+parser = argparse.ArgumentParser(description='garbage_classify')
+parser.add_argument('--seed', type=int, default=123456)  # 待实现
+parser.add_argument('--data_path', type=str, default='train_data/')
+parser.add_argument('--result_path', type=str, default='result/')
+parser.add_argument('--gpus', type=str, default='0')
+parser.add_argument('--batch_size', type=int, default=12)
+parser.add_argument('--epoch', type=int, default=150)
+args = parser.parse_args()
+
 if __name__ == '__main__':
     # creat train dataset
-    data_path = '/data/multi_task/Ubuntu_Code/garbage_classify/huawei-garbage-master/Data'
+    data_path = args.data_path
     mean, std = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
     transform = transforms.Compose([Resize((448, 448)),
                                     transforms.ToTensor(),
                                     transforms.Normalize(mean=mean, std=std)])
-    train_dataset = Dataset(root=data_path, transform=transform)  # config.py
-    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True,
+
+    dataset = Dataset(root=data_path, transform=transform)  # full dataset
+
+    # split dataset
+    train_size = int(0.98 * len(dataset))
+    test_size = len(dataset) - train_size
+    train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
+
+    train_loader = DataLoader(train_dataset,
+                              batch_size=args.batch_size,
+                              shuffle=True,
+                              num_workers=8,
                               pin_memory=True)
-    test_dataset = Dataset(root=data_path, transform=transform)  # config.py
-    test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False,
+
+    test_loader = DataLoader(test_dataset,
+                             batch_size=args.batch_size,
+                             shuffle=False,
+                             num_workers=8,
                              pin_memory=True)
 
     # creat model
-    os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2,3'
+    os.environ['CUDA_VISIBLE_DEVICES'] = args.gpus
     net = resnet50(pretrained=True)
     model = PMG(net, 512, 43)
-    # print(model)
+    print(model)
     model = torch.nn.DataParallel(model)
     model = model.cuda()
 
-    model = model.cuda()
     criterion = nn.CrossEntropyLoss().cuda()
-    EPOCH = 150
+    EPOCH = args.epoch
     optimizer = torch.optim.SGD(model.parameters(),
                                 lr=0.01,
                                 momentum=0.9,
@@ -131,14 +153,14 @@ if __name__ == '__main__':
         epoch_loss = 0
         correct = 0
         total = 0
-        progress = tqdm(enumerate(train_loader))  # 进度条
-        for step, train_data in progress:
+        # progress = tqdm(enumerate(train_loader))  # 进度条
+        for step, train_data in enumerate(train_loader):
             X, y = train_data  # X.dtype is torch.float32, y.dtype is torch.int64
             X, y = X.cuda(), y.float().cuda()
 
             # forward
             y_pred = model(X)[-1]
-            print(f'label:{y} | prediction:{torch.argmax(y_pred, dim=1)}')
+            # print(f'label:{y} | prediction:{torch.argmax(y_pred, dim=1)}')
 
             loss = criterion(y_pred, y.long())
 
@@ -159,22 +181,28 @@ if __name__ == '__main__':
             avg_loss = epoch_loss / (step + 1)
             train_acc = correct / total
 
-            progress.set_description(
-                'Epoch: {}/{}, loss: {:.6f}, acc: {:.4f}'.format(epoch, EPOCH, avg_loss, train_acc))
+            print_msg(f'Epoch: {epoch}/{EPOCH}, Step: {step+1}, Loss: {avg_loss}, Acc: {train_acc}')
 
-            test_acc, all_pred = _eval(model, test_loader)
-            if test_acc > max_acc:
-                max_acc = test_acc
+        # progress.set_description(
+        #     'Epoch: {}/{}, loss: {:.6f}, acc: {:.4f}'.format(epoch, EPOCH, avg_loss, train_acc))
 
-                state = {
-                    'fold': 0,
-                    'epoch': epoch + 1,
-                    'state_dict': model.module.state_dict(),
-                    'train_acc': train_acc,
-                    'acc': test_acc,
-                    'best_acc': max_acc,
-                    'optimizer': optimizer.state_dict(),
-                }
-                result_path = '/data/multi_task/Ubuntu_Code/garbage_classify/result'
-                torch.save(state, os.path.join(result_path, 'best_acc.pth'))
-                print_msg(f'Epoch{epoch} | test_acc:{test_acc}')
+        test_acc, all_pred = _eval(model, test_loader)
+        if test_acc > max_acc:
+            max_acc = test_acc
+
+            state = {
+                'fold': 0,
+                'epoch': epoch,
+                'state_dict': model.module.state_dict(),
+                'train_acc': train_acc,
+                'acc': test_acc,
+                'best_acc': max_acc,
+                'optimizer': optimizer.state_dict(),
+            }
+
+            result_path = args.result_path
+            if not os.path.exists(result_path):
+                os.makedirs(result_path)
+
+            torch.save(state, result_path + 'best_acc.pth')
+            print_msg(f'Epoch{epoch} | test_acc:{test_acc}')
