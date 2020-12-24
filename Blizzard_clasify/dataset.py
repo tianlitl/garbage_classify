@@ -1,20 +1,13 @@
 #!usr/bin/env python  
-#-*- coding:utf-8 _*- 
+# -*- coding:utf-8 _*-
 """
 @version: python3.6
 """
-import random
-import torch
-from torch.utils.data import Dataset
-from torch.utils.data import sampler
-import torchvision.transforms as transforms
-import pandas as pd
-import six
 import sys
+
 from PIL import Image
-import numpy as np
-import matplotlib.pyplot as plt
-import os
+from torch.utils.data import Dataset
+
 
 class Dataset(Dataset):
     def __init__(self, root=None, transform=None, target_transform=None, to=None):
@@ -25,7 +18,7 @@ class Dataset(Dataset):
             # print(i)
             if os.path.splitext(i)[1] == '.txt':
                 # print(i)
-                self.env.append(root+'/'+i)
+                self.env.append(root + '/' + i)
 
         self.len = len(self.env) - 1
 
@@ -39,7 +32,7 @@ class Dataset(Dataset):
         assert index <= len(self), 'index range error'
 
         img_path, label = open(self.env[index]).readlines()[0].split(',')
-        img_path = self.root + '/'+img_path
+        img_path = self.root + '/' + img_path
         try:
             img = Image.open(img_path)
         except:
@@ -55,6 +48,7 @@ class Dataset(Dataset):
         if self.target_transform is not None:
             label = self.target_transform(label)
         return (img, int(label))
+
 
 class TestDataset(Dataset):
     def __init__(self, root=None, transform=None, target_transform=None, to=None):
@@ -91,7 +85,6 @@ class TestDataset(Dataset):
         if self.transform is not None:
             img = self.transform(img)
 
-
         if self.target_transform is not None:
             label = self.target_transform(label)
 
@@ -112,11 +105,11 @@ class resizeNormalize(object):
         if w / h < ratio:
             t = int(h * ratio)
             w_padding = (t - w) // 2
-            img = img.crop((-w_padding, 0, w+w_padding, h))
+            img = img.crop((-w_padding, 0, w + w_padding, h))
         else:
             t = int(w / ratio)
             h_padding = (t - h) // 2
-            img = img.crop((0, -h_padding, w, h+h_padding))
+            img = img.crop((0, -h_padding, w, h + h_padding))
 
         # img.show()
         # resize
@@ -125,10 +118,12 @@ class resizeNormalize(object):
         img.sub_(0.5).div_(0.5)
         return img
 
+
 if __name__ == '__main__':
     import torch.utils.data as data
     import os
     from torchvision import transforms
+
     data_path = '/data/multi_task/Ubuntu_Code/garbage_classify/huawei-garbage-master/Data/garbage_classify'
     transform = transforms.Compose([transforms.ToTensor()])
     trainset = Dataset(root=data_path, transform=transform)

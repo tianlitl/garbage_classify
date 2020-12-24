@@ -1,0 +1,6 @@
+# IntelliJ project files
+.idea
+*.iml
+
+garbage_classify_rule.json
+vis_data.ipynb

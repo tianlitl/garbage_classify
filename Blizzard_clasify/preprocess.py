@@ -1,5 +1,5 @@
 #!usr/bin/env python  
-#-*- coding:utf-8 _*- 
+# -*- coding:utf-8 _*-
 """
 @version: python3.6
 @author: QLMX
@@ -8,13 +8,13 @@
 公众号：AI成长社
 知乎：https://www.zhihu.com/people/qlmx-61/columns
 """
-from glob import glob
-import os
 import codecs
+import os
 import random
-import numpy as np
-from sklearn.model_selection import KFold, StratifiedKFold
+from glob import glob
 
+import numpy as np
+from sklearn.model_selection import StratifiedKFold
 
 base_path = 'data/'
 data_path = base_path + 'garbage_classify/train_data'
@@ -63,7 +63,6 @@ for index, file_path in enumerate(label_files_add):
         data_dict[label] = []
     data_dict[label].append(os.path.join(data_path_add, img_name) + ',' + str(label))
 
-
 folds = StratifiedKFold(n_splits=10, shuffle=True, random_state=2019)
 for fold_, (trn_idx, val_idx) in enumerate(folds.split(result, labels)):
     train_data = list(np.array(result)[trn_idx])
@@ -78,7 +77,6 @@ with open(base_path + 'train1.txt', 'w') as f1:
 with open(base_path + 'val1.txt', 'w') as f2:
     for item in val_data:
         f2.write(item + '\n')
-
 
 from PIL import Image
 
@@ -110,8 +108,8 @@ for i in range(40):
             all_data.append(item + ',' + str(i))
             na_item.append(item + ',' + str(i))
     random.shuffle(na_item)
-    train.extend(na_item[ : int(len(na_item)*rate)])
-    val.extend(na_item[int(len(na_item)*rate):])
+    train.extend(na_item[: int(len(na_item) * rate)])
+    val.extend(na_item[int(len(na_item) * rate):])
 print(len(train), len(val))
 
 random.shuffle(all_data)
