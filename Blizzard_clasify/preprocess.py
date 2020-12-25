@@ -64,3 +64,5 @@ for test_img_label in val_data:
     label_path = label_path + '.txt'
     shutil.copy(label_path, '/data/multi_task/Ubuntu_Code/garbage_classify/huawei-garbage-master/DataSet/TestData')
     print(label_path)
+    
+    
