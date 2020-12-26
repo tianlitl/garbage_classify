@@ -32,16 +32,3 @@ class LabelSmoothingLoss(nn.Module):
         smooth_label.fill_(self.smoothing / (self.classes - 1))
         smooth_label.scatter_(1, label.unsqueeze(1), confidence)
         return smooth_label
-
-
-if __name__ == '__main__':
-    # torch.cuda.set_device(3)
-
-    pred = torch.randn([4, 1, 25, 25]).cuda()
-    label = torch.zeros([4, 25, 25]).cuda()
-    label[3:8, :, :] = 1
-    label[10:15, :, :] = -1
-
-    model = LabelSmoothingLoss().cuda()
-    loss = model(pred, label)
-    print(loss)
