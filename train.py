@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from tqdm import tqdm
 
+from LabelSmoothingLoss import LabelSmoothingLoss
 from Resnet import resnet50
 from dataset import Dataset
 from metrics import accuracy
@@ -124,7 +125,7 @@ if __name__ == '__main__':
     model = torch.nn.DataParallel(model)
     model = model.cuda()
 
-    criterion = nn.CrossEntropyLoss().cuda()
+    criterion = LabelSmoothingLoss() #nn.CrossEntropyLoss().cuda()
     EPOCH = args.epoch
     optimizer = torch.optim.SGD(model.parameters(),
                                 lr=0.01,
@@ -161,7 +162,8 @@ if __name__ == '__main__':
             # forward
             y_pred = model(X)[-1]
             # print(f'label:{y} | prediction:{torch.argmax(y_pred, dim=1)}')
-
+            # y_pred: [B, 43]
+            # y.long(): [B]
             loss = criterion(y_pred, y.long())
 
             # backward
