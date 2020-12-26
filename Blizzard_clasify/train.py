@@ -10,11 +10,13 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from tqdm import tqdm
 
-from .Resnet import resnet50
-from .dataset import Dataset
-from .metrics import accuracy
-from .model import PMG
-from .utils import print_msg
+from Resnet import resnet50
+from dataset import Dataset
+from metrics import accuracy,Cmatrix
+from model import PMG
+from utils import print_msg
+import numpy as np
+
 
 
 class Resize(object):
@@ -76,27 +78,28 @@ def _eval(model, dataloader):
     acc = round(correct / total, 4)
     model.train()
     torch.set_grad_enabled(True)
-    return acc, all_pred.cpu().numpy()
+    return acc, all_targ.cpu().numpy(), all_pred.cpu().numpy()
 
 
 if __name__ == '__main__':
     # creat train dataset
-    data_path = '/data/multi_task/Ubuntu_Code/garbage_classify/huawei-garbage-master/Data'
+    data_path = '/data/multi_task/Ubuntu_Code/garbage_classify/huawei-garbage-master/DataSet/TrainData'
+    test_data = '/data/multi_task/Ubuntu_Code/garbage_classify/huawei-garbage-master/DataSet/TestData'
     mean, std = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
     transform = transforms.Compose([Resize((448, 448)),
                                     transforms.ToTensor(),
                                     transforms.Normalize(mean=mean, std=std)])
     train_dataset = Dataset(root=data_path, transform=transform)  # config.py
-    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True,
+    train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True,
                               pin_memory=True)
-    test_dataset = Dataset(root=data_path, transform=transform)  # config.py
-    test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False,
+    test_dataset = Dataset(root=test_data, transform=transform)  # config.py
+    test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False,
                              pin_memory=True)
 
     # creat model
     os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2,3'
     net = resnet50(pretrained=True)
-    model = PMG(net, 512, 43)
+    model = PMG(net, 448, 43)
     # print(model)
     model = torch.nn.DataParallel(model)
     model = model.cuda()
@@ -113,6 +116,7 @@ if __name__ == '__main__':
                                                         # 当训练epoch达到milestones值时,初始学习率乘以gamma得到新的学习率;
                                                         milestones=[50, 100],
                                                         gamma=0.5)
+    # resume = '/data/multi_task/Ubuntu_Code/garbage_classify/result/best_acc.pth'
     resume = None
     if resume:
         # load checkpoint
@@ -138,7 +142,7 @@ if __name__ == '__main__':
 
             # forward
             y_pred = model(X)[-1]
-            print(f'label:{y} | prediction:{torch.argmax(y_pred, dim=1)}')
+            # print(f'label:{y} | prediction:{torch.argmax(y_pred, dim=1)}')
 
             loss = criterion(y_pred, y.long())
 
@@ -162,19 +166,36 @@ if __name__ == '__main__':
             progress.set_description(
                 'Epoch: {}/{}, loss: {:.6f}, acc: {:.4f}'.format(epoch, EPOCH, avg_loss, train_acc))
 
-            test_acc, all_pred = _eval(model, test_loader)
-            if test_acc > max_acc:
-                max_acc = test_acc
 
-                state = {
-                    'fold': 0,
-                    'epoch': epoch + 1,
-                    'state_dict': model.module.state_dict(),
-                    'train_acc': train_acc,
-                    'acc': test_acc,
-                    'best_acc': max_acc,
-                    'optimizer': optimizer.state_dict(),
-                }
-                result_path = '/data/multi_task/Ubuntu_Code/garbage_classify/result'
-                torch.save(state, os.path.join(result_path, 'best_acc.pth'))
-                print_msg(f'Epoch{epoch} | test_acc:{test_acc}')
+            if (epoch + 1) % 1 == 0:
+                test_acc, test_target, all_pred = _eval(model, test_loader)
+                # print_msg(f'test_acc:{test_acc}')
+                if test_acc > max_acc:
+                    max_acc = test_acc
+
+                    state = {
+                        'fold': 0,
+                        'epoch': epoch + 1,
+                        'state_dict': model.module.state_dict(),
+                        'train_acc': train_acc,
+                        'acc': test_acc,
+                        'best_acc': max_acc,
+                        'optimizer': optimizer.state_dict(),
+                    }
+                    result_path = '/data/multi_task/Ubuntu_Code/garbage_classify/result'
+                    # torch.save(state, os.path.join(result_path, 'best_acc.pth'))
+                    # print_msg(f'Epoch{epoch} | test_acc:{test_acc}')
+                    torch.save(state, os.path.join(result_path, 'best_acc.pth'))
+                    label = test_target
+                    predic = all_pred
+                    # print(f'eval_label:{label} | prediction:{predic}')
+                    rater_a = np.array(label, dtype=int)
+                    rater_b = np.array(predic, dtype=int)
+                    confusion_matrixs = Cmatrix(rater_a, rater_b, min_rating=0, max_rating=42)
+                    file_out = open('/data/multi_task/Ubuntu_Code/garbage_classify/result/out.txt', mode='w')
+                    file_out.write('Epoch: '+str(epoch)+'\n')
+                    file_out.write(str(confusion_matrixs))
+
+                    print_msg(f'Epoch{epoch} | test_acc:{test_acc} | confusion_matrix:\n{confusion_matrixs}')
+
+
