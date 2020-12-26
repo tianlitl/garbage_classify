@@ -12,7 +12,7 @@ from torchvision import transforms
 from tqdm import tqdm
 
 from LabelSmoothingLoss import LabelSmoothingLoss
-from Resnet import resnet50
+from resnet_cbam import resnet50
 from dataset import Dataset
 from metrics import accuracy
 from model import PMG
