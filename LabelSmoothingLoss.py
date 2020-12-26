@@ -8,7 +8,7 @@ class LabelSmoothingLoss(nn.Module):
         super(LabelSmoothingLoss, self).__init__()
         self.smoothing = smoothing
         self.classes = classes
-        self.criterion = nn.KLDivLoss(reduction='sum')
+        self.criterion = nn.KLDivLoss(reduction='batchmean')
 
     def forward(self, pred, label):
         """
@@ -29,6 +29,6 @@ class LabelSmoothingLoss(nn.Module):
         confidence = 1.0 - self.smoothing
 
         smooth_label = torch.empty(size=pred.shape, device=pred.device)
-        smooth_label.fill_(self.smoothing / (self.classes - 1))
+        smooth_label.fill_(self.smoothing / self.classes)
         smooth_label.scatter_(1, label.unsqueeze(1), confidence)
         return smooth_label

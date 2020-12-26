@@ -121,11 +121,12 @@ if __name__ == '__main__':
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpus
     net = resnet50(pretrained=True)
     model = PMG(net, 512, 43)
-    print(model)
+    # print(model)
     model = torch.nn.DataParallel(model)
     model = model.cuda()
 
-    criterion = LabelSmoothingLoss() #nn.CrossEntropyLoss().cuda()
+    # criterion = nn.CrossEntropyLoss().cuda()
+    criterion = LabelSmoothingLoss()
     EPOCH = args.epoch
     optimizer = torch.optim.SGD(model.parameters(),
                                 lr=0.01,
@@ -183,7 +184,9 @@ if __name__ == '__main__':
             avg_loss = epoch_loss / (step + 1)
             train_acc = correct / total
 
-            print_msg(f'Epoch: {epoch}/{EPOCH}, Step: {step+1}, Loss: {avg_loss}, Acc: {train_acc}')
+            if step % 20 == 0:
+                print_msg('Epoch: {}/{}, Step: {:4d}, Loss: {:.6f}, Acc: {:.5f}'
+                      .format(epoch, EPOCH, step + 1, avg_loss, train_acc))
 
         # progress.set_description(
         #     'Epoch: {}/{}, loss: {:.6f}, acc: {:.4f}'.format(epoch, EPOCH, avg_loss, train_acc))
